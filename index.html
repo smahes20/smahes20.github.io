@@ -1,0 +1,269 @@
+<!-- 
+	Author: Sakshi Maheshwari
+	Web reference links: 
+		https://d3-graph-gallery.com/graph/custom_annotation.html 
+		https://www.w3schools.com/html/html_images_background.asp
+		https://www.freecodecamp.org/news/how-to-use-html-to-open-link-in-new-tab/
+		referencing course labs, TA's office hours
+-->
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+		<meta name = "robots" content = "noindex">  <!-- prevent indexing of URL  -->
+        <script src='https://d3js.org/d3.v5.min.js'></script>  <!-- Load d3.js -->
+		<script src="https://rawgit.com/susielu/d3-annotation/master/d3-annotation.min.js"></script> <!-- Load d3-annotation -->
+        <link rel="stylesheet" type="text/css" href="main.css" />
+    </head>
+    <style>
+		body {
+		  /* background-image: url('img.jfif') ; */
+		  background-color: #e1c0e9;
+		  filter: blur(100px);
+  		  -webkit-filter: blur(0px);
+		  background-repeat: no-repeat;
+		  background-attachment: fixed;  
+		  background-size: cover;
+		}
+		</style>
+    <body onload='init()'>
+		
+        <h1 class="main-header">World Average Temperatures(°C)</h1>
+		<h4 class="sub-header"> Data was retrieved from <a href="https://www.ncdc.noaa.gov/cag/global/time-series" target="_blank"> NOAA Website</a> for the month of June from 1880-2022.</h4>
+        <p class="para">This narrative vizualization project is to depict the trend of the temperatures across
+			the globe over time and how there have been fluctuating as part of temperature anomalies on both land and ocean.
+			The data depicts the mean of surface temperatures (land and ocean) both positive and negative indicating how the temperatures have changed
+			over time from years 1880 till June 2022. The goal of this vizualization is to break up the temperature reading into
+			multiple chunks based on years to clearly show the increase in temperature. 
+		</p>
+		<div class="main-buttons">
+            <button onclick='moveStateBack()'><</button> <!-- < backward button -->
+            <button id="1" onclick='changeToState(1)'>1880-1920</button>
+            <button id="2" onclick='changeToState(2)'>1921-1980</button>
+            <button id="3" onclick='changeToState(3)'>1981-2022</button>
+            <button id="4" onclick='changeToState(4)'>All Years</button>
+            <button onclick='moveStateForward()'>></button> <!-- > forward button -->
+        </div>
+		<h2 id="infoHeader" class="svg-header"></h2>
+        <svg class="main-svg"></svg>   <!-- create SVG canvas -->
+		<script>
+			var state = 0;	 //button state
+			var data; //variable to store the data  
+			
+            async function init() {
+                // load data into a contianer variable
+                data = await d3.csv("data.csv");
+				
+				// tooltip
+				d3.select('body')
+					.append('div')
+					.attr('id', 'tooltip')
+					.attr('style', 'position: absolute; opacity: 0;');
+				
+				changeToState(1);
+            }
+			
+			// invoke button state with "<" button
+			function moveStateBack() {
+				if (state > 1) {
+					state = state - 1;
+					changeToState(state);
+				}
+			}
+			
+			// invoke button state with ">" button
+			function moveStateForward() {
+				if (state < 4) {
+					state = state + 1;
+					changeToState(state);
+				}
+			}
+			// clear the svg from the page
+			function clear() {
+				d3.selectAll("svg > *").remove();
+				d3.select('#tooltip').style('opacity', 0);
+			}
+
+			// create SVG graph
+			function changeToState(newstate) {
+				// Change State and clear SVG
+				state = newstate;
+				clear();
+				
+				// Get the state for the filter ranges, execute associated method
+				if (state == 1) {
+					d3.select('#infoHeader').text("Years 1880-1920");
+					drawSVG(1880,1920);
+				} else if (state == 2) {
+					d3.select('#infoHeader').text("Years 1921-1980");
+					drawSVG(1921,1980);
+				} else if (state == 3) {
+					d3.select('#infoHeader').text("Years 1981-2022");
+					drawSVG(1981,2022);
+				} else if (state == 4) {
+					d3.select('#infoHeader').text("All recorded years (1880-2022)");
+					drawSVG(1880,2022);
+				}
+			}
+			
+			function drawSVG(bottom, top) {
+                svgWidth = 500;
+                svgHeight = 500;
+                svgMargin = 50;
+                cxs = d3.scaleLinear().domain([1880,2022]).range([0,svgWidth]);
+                cys = d3.scaleLinear().domain([-1,1]).range([svgHeight,0]);
+				
+				// SVG frame for scatterplot
+                d3.select("svg")
+                        .append("g")
+                        .attr("transform", "translate("+svgMargin+","+svgMargin+")")
+                        .selectAll().data(data.filter(function(d){return (d.Year >= bottom) && (d.Year <= top);})).enter().append("circle")
+                            .attr("cx", function(d) {return cxs(+d.Year);})
+                            .attr("cy", function(d) {return cys(+d.Value);})
+                            .attr("r", 5)
+						.on("mouseover", function(d) {
+							d3.select('#tooltip').transition().duration(200)
+								.style('opacity', 1);
+							d3.select('#tooltip')
+								.style("left", (d3.event.pageX) + "px")             
+								.style("top", (d3.event.pageY - 50) + "px")
+								.html("Year: " + d.Year + "<br/>" + "Deviation(°C): " + d.Value);
+						});
+				
+				// y-axis
+				d3.select("svg").append("g")
+				  .attr("transform","translate("+svgMargin+","+svgMargin+")")
+				  .call(d3.axisLeft(cys)
+						  .tickValues([-1,-.5, 0, .5,1])
+						  .tickFormat(d3.format(".1f")));
+				
+				// y-axis label
+				d3.select("svg").append("text")
+				  .attr("class", "ylabel")
+				  .attr("text-anchor", "end")
+				  .attr("y", 6)
+				  .attr("x", -225)
+				  .attr("dy", ".75em")
+				  .attr("transform", "rotate(-90)")
+				  .text("Temperature Deviation (°C)"); 
+
+				// x-axis
+				d3.select("svg").append("g")
+				  .attr("transform","translate("+svgMargin+","+(svgHeight+svgMargin)+")")
+				  .call(d3.axisBottom(cxs)
+						  .tickValues([1880,1900,1920,1940,1960,1980,2000,2022])
+						  .tickFormat(d3.format(".0f")));
+						  
+				// x-axis labels
+				d3.select("svg").append("text")
+				  .attr("class", "xlabel")
+				  .attr("text-anchor", "end")
+				  .attr("x", (svgWidth/2) + svgMargin)
+				  .attr("y", svgHeight + svgMargin + 35)
+				  .text("Year");
+				
+				 
+				  
+				// features of the annotations
+				const info_annot = [
+					{
+					  note: {
+						label: "Mouseover the data points to get details about the temperature deviation and the year they were recorded in",
+						title: "Explore Data",
+						wrap: 200,
+						padding: 10
+						// align: "middle",
+					  },
+					  color: ["#000000"],
+					  x: 70,
+					  dx:5,
+					}
+				]
+				
+				const sceneOne_annot = [
+					{
+					  note: {
+						label: "During this period of time, the temperatures were stable and less deviation was noticed by NOAA",
+						title: "Stable Temperatures",
+						wrap: 200,
+						padding: 10
+					  },
+					  color: ["#224898"],
+					  x: 250,
+					  y: 300,
+					  dx:8,
+					}
+				]
+				
+				const sceneTwo_annot = [
+					{
+					  note: {
+						label: "This period was characterized as warm years, with the last negative temperature deviation occuring in 1976",
+						title: "Warming Temperatures",
+						wrap: 200,
+						padding: 10
+					  },
+					  color: ["#D51E6A"],
+					  x: 300,
+					  y: 350,
+					  dx:8,
+					}
+				]
+				
+				const sceneThree_annot = [
+					{
+					  note: {
+						label: "Six of the warmest recorded years have occured in the past 8 years",
+						title: "Global Warming Temperatures",
+						wrap: 200,
+						padding: 10
+					  },
+					  color: ["#D91212"],
+					  x: 375,
+					  y: 300,
+					  dx:8,
+					}
+				]
+				
+				const sceneFour_annot = [
+					{
+					  note: {
+						label: "Temperature readings have drastically increased over the past 18 years and are negatively effecting the planet.",
+						title: "Climate Change",
+						wrap: 200,
+						padding: 10
+					  },
+					  color: ["#F1752E"],
+					  x: 400,
+					  y: 350,
+					  dx:8,
+					}
+				]
+				
+				// add annotations to the chart
+				//always print the info annotation for the plot
+				const annotInfo = d3.annotation().annotations(info_annot)
+				d3.select("svg").append("g").call(annotInfo)
+				
+				// using the button state display annotation of the scatterplot
+				const annotOne = d3.annotation().annotations(sceneOne_annot)
+				const annotTwo = d3.annotation().annotations(sceneTwo_annot)
+				const annotThree = d3.annotation().annotations(sceneThree_annot)
+				const annotFour = d3.annotation().annotations(sceneFour_annot)
+				if (state == 1) {
+					d3.select("svg").append("g").call(annotOne)
+				} else if (state == 2) {
+					d3.select("svg").append("g").call(annotTwo)
+				} else if (state == 3) {
+					d3.select("svg").append("g").call(annotThree)
+				} else if (state == 4) {
+					d3.select("svg").append("g").call(annotFour)
+				}
+				  
+				d3.select("svg").append("g").call(annotInfo)
+			}
+			
+        </script>
+    </body>
+</html>
